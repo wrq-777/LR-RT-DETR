@@ -1,0 +1,96 @@
+﻿# =============================================================================
+#  基础引用
+# =============================================================================
+__include__: [
+  "../runtime.yml",
+  "./include/optimizer.yml",
+  "./include/rtdetr_ghostnetv2.yml"
+]
+
+# ★ 全局声明类别数，确保参数贯穿整个模型
+num_classes: 10
+remap_mscoco_category: False
+
+# 输出目录
+output_dir: ./output/gc10_det_ghostv2_lgag
+
+# =============================================================================
+#  模型结构
+# =============================================================================
+RTDETR:
+  encoder: HybridEncoderLGAG
+  num_classes: 10  # 确保传递给 Decoder
+
+SetCriterion:
+  num_classes: 10  # 确保传递给 SetCriterion
+  # ★ 降低 VFL 权重至 1.5，缓解 LGAG 模块“去噪”和分类分支“识别”的严重冲突
+  weight_dict: {loss_vfl: 1.5, loss_bbox: 5.0, loss_giou: 2.0}
+
+epoches: 300
+
+HybridEncoderLGAG:
+  in_channels: [40, 80, 160]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 192
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 6
+  dim_feedforward: 768
+  dropout: 0.0
+  enc_act: 'gelu'
+  pe_temperature: 10000
+  expansion: 1.0
+  depth_mult: 1.0
+  act: 'silu'
+  eval_spatial_size: [1024, 1024]
+  lgag_kernel_size: 3
+
+# =============================================================================
+#  数据加载器配置
+# =============================================================================
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/GC10-DET/images/train
+    ann_file: E:/datasets/GC10-DET/annotations/instances_train.json
+    num_classes: 10
+    class_names: ['punching', 'welding_line', 'crescent_gap', 'water_spot', 'oil_spot', 'silk_spot', 'inclusion', 'rolled_pit', 'crease', 'waist_folding']
+    transforms:
+      type: Compose
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        # ★ 注释掉暴力裁剪，保护 GC10 中油斑、水斑等完整上下文不被破坏
+        # - {type: RandomZoomOut, fill: 0}
+        # - {type: RandomIoUCrop, p: 0.8}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: ConvertBox, out_fmt: "cxcywh", normalize: true}
+  batch_size: 4
+  shuffle: true
+  num_workers: 0
+  drop_last: true
+  collate_fn: detection_collate
+
+val_dataloader:
+  type: DataLoader
+  shuffle: false  # 防止 solver.py 找不到属性报错
+  batch_size: 6
+  num_workers: 0
+  drop_last: false
+  collate_fn: detection_collate
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/GC10-DET/images/val
+    ann_file: E:/datasets/GC10-DET/annotations/instances_val.json
+    num_classes: 10
+    class_names: ['punching', 'welding_line', 'crescent_gap', 'water_spot', 'oil_spot', 'silk_spot', 'inclusion', 'rolled_pit', 'crease', 'waist_folding']
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}

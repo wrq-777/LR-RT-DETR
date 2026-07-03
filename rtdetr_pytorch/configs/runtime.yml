@@ -1,0 +1,27 @@
+sync_bn: True
+find_unused_parameters: False
+
+# ★ 开启混合精度训练，节省显存，加速计算
+use_amp: True
+
+scaler:
+  type: GradScaler
+  enabled: True
+
+use_ema: True
+ema:
+  type: ModelEMA
+  decay: 0.9999
+  warmups: 2000
+
+# ★ 新增：开启梯度累加步数，模拟 Batch Size = 16 的大梯度平滑，解决 Loss 震荡发散
+accumulate: 4
+
+# 每隔多少个 epoch 做一次验证（最后一个 epoch 仍会强制评估）
+eval_interval: 1
+
+# 评估结果每隔多少个 epoch 落盘一次
+eval_save_interval: 50
+
+# 是否保存评估结果到磁盘
+save_eval: true

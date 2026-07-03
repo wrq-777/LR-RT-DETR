@@ -1,0 +1,78 @@
+﻿__include__: [
+  "../runtime.yml",
+  "./include/optimizer.yml",
+  "./include/rtdetr_ghostnetv2.yml"   # ← 从 rtdetr_r18vd.yml 改为这一份
+]
+output_dir: ./output/neu_det_ghostv2   # ← 新的输出目录
+# 删除 PResNet 小节（Ghost 不需要）
+
+
+inject:
+  DataLoader: src.data.dataloader
+  CocoDetection: src.data.coco.coco_dataset
+  Compose: src.data.transforms
+  EmptyTransform: src.data.transforms
+  PadToSize: src.data.transforms
+  RandomIoUCrop: src.data.transforms
+  ConvertBox: src.data.transforms
+  RandomPhotometricDistort: src.data.transforms
+  RandomZoomOut: src.data.transforms
+  SanitizeBoundingBox: src.data.transforms
+  RandomHorizontalFlip: src.data.transforms
+  Resize: src.data.transforms
+  ToImageTensor: src.data.transforms
+  ConvertDtype: src.data.transforms
+  # collate 不需在 inject 再映射，因为我们已用 @register 注册到全局
+
+
+
+RTDETR:
+  num_classes: 6
+
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/train
+    ann_file: E:/datasets/NEU-DET/annotations/instances_train.json
+    num_classes: 6
+    class_names: [crazing, inclusion, patches, pitted_surface, rolled-in_scale, scratch]
+    return_masks: false
+    transforms:
+      type: Compose
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: ConvertBox, out_fmt: "cxcywh", normalize: true}
+  batch_size: 4          # 显存不够就改 1
+  shuffle: true
+  num_workers: 0         # Windows 先用 0
+  drop_last: true
+  collate_fn: detection_collate
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/val
+    ann_file: E:/datasets/NEU-DET/annotations/instances_val.json
+    num_classes: 6
+    class_names: [crazing, inclusion, patches, pitted_surface, rolled-in_scale, scratch]
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+  batch_size: 6
+  shuffle: false
+  num_workers: 0
+  drop_last: false
+  collate_fn: detection_collate

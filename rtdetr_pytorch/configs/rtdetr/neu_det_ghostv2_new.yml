@@ -1,0 +1,63 @@
+﻿# 路径: configs/rtdetr/neu_det_ghostv2_new.yml
+
+__include__: [
+  "../runtime.yml",                        # 引用上级目录的 runtime
+  "./include/optimizer.yml",               # 引用同级 include 下的 optimizer
+  "./include/rtdetr_ghostnetv2_new.yml"    # 引用刚才新建的模型文件
+]
+
+output_dir: ./output/neu_det_ghostv2_new   # 修改输出目录以免覆盖旧的训练结果
+
+RTDETR:
+  num_classes: 6                           # NEU-DET 只有 6 类
+
+# -----------------------------------------------------------------
+# 数据集加载 (Dataloader)
+# -----------------------------------------------------------------
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/train
+    ann_file: E:/datasets/NEU-DET/annotations/instances_train.json
+    num_classes: 6
+    class_names: [crazing, inclusion, patches, pitted_surface, rolled-in_scale, scratch]
+    return_masks: false
+    transforms:
+      type: Compose
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: ConvertBox, out_fmt: "cxcywh", normalize: true}
+  batch_size: 4          # 显存不够改为 2 或 1
+  shuffle: true
+  num_workers: 0         # Windows 下保持 0
+  drop_last: true
+  collate_fn: detection_collate
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/val
+    ann_file: E:/datasets/NEU-DET/annotations/instances_val.json
+    num_classes: 6
+    class_names: [crazing, inclusion, patches, pitted_surface, rolled-in_scale, scratch]
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+  batch_size: 6
+  shuffle: false
+  num_workers: 0
+  drop_last: false
+  collate_fn: detection_collate

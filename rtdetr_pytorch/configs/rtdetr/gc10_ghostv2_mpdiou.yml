@@ -1,0 +1,85 @@
+﻿# 1. 继承基础配置 (和你跑 NEU-DET 时一样)
+__include__:
+  - "../runtime.yml"
+  - "./include/optimizer.yml"
+  - "./include/rtdetr_ghostnetv2.yml"
+
+# 2. 输出目录 (区分一下，叫 gc10_mpdiou)
+output_dir: ./output/gc10_ghostv2_mpdiou
+
+# 3. 必须的模块注入 (照搬你 NEU-DET 的写法)
+inject:
+  DataLoader: src.data.dataloader
+  CocoDetection: src.data.coco.coco_dataset
+  Compose: src.data.transforms
+  EmptyTransform: src.data.transforms
+  PadToSize: src.data.transforms
+  RandomIoUCrop: src.data.transforms
+  ConvertBox: src.data.transforms
+  RandomPhotometricDistort: src.data.transforms
+  RandomZoomOut: src.data.transforms
+  SanitizeBoundingBox: src.data.transforms
+  RandomHorizontalFlip: src.data.transforms
+  Resize: src.data.transforms
+  ToImageTensor: src.data.transforms
+  ConvertDtype: src.data.transforms
+
+# 4. 核心模型设置
+RTDETR:
+  num_classes: 10  # GC10 是 10 类
+
+# 5. 训练轮数
+# GC10 比 NEU-DET 难，NEU-DET 跑 72 轮够了，GC10 建议稍微多一点点，或者保持 72 也可以
+# 为了求稳，我们设为 100，你可以随时停
+epoches: 300
+
+# 6. 数据集加载 (这里换成你的 GC10 路径)
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    # ★★★ 你的本地路径 ★★★
+    img_folder: E:/DATASETGC10_COCO/images/train
+    ann_file:  E:/DATASETGC10_COCO/annotations/instances_train.json
+    num_classes: 10
+    class_names: [1_chongkong, 2_hanfeng, 3_yueyawan, 4_shuiban, 5_youban, 6_siban, 7_yiwu, 8_yahen, 9_zhehen, 10_yaozhe]
+    return_masks: false
+    transforms:
+      type: Compose
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: ConvertBox, out_fmt: "cxcywh", normalize: true}
+  batch_size: 4
+  shuffle: true
+  num_workers: 0
+  drop_last: true
+  collate_fn: detection_collate
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    # ★★★ 你的本地路径 ★★★
+    img_folder: E:/DATASETGC10_COCO/images/val
+    ann_file:  E:/DATASETGC10_COCO/annotations/instances_val.json
+    num_classes: 10
+    class_names: [1_chongkong, 2_hanfeng, 3_yueyawan, 4_shuiban, 5_youban, 6_siban, 7_yiwu, 8_yahen, 9_zhehen, 10_yaozhe]
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+  batch_size: 6
+  shuffle: false
+  num_workers: 0
+  drop_last: false
+  collate_fn: detection_collate

@@ -1,0 +1,80 @@
+﻿__include__: [
+  "../runtime.yml",
+  "./include/optimizer.yml",
+  "./include/rtdetr_ghostnetv2.yml"
+]
+
+output_dir: ./output/neu_det_ghostv2_lgag
+
+RTDETR:
+  encoder: HybridEncoderLGAG
+
+# ★★★ 修改后的配置：非常精简，没有复杂的注入 ★★★
+HybridEncoderLGAG:
+  in_channels: [40, 80, 160]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 192
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 6
+  dim_feedforward: 768
+  dropout: 0.0
+  enc_act: 'gelu'
+  pe_temperature: 10000
+  expansion: 1.0
+  depth_mult: 1.0
+  act: 'silu'
+  eval_spatial_size: [640, 640]
+  lgag_kernel_size: 3
+  # 注意：这里不再需要 encoder_layer: ...
+
+# =============================================================================
+#  数据加载器配置 (保持不变)
+# =============================================================================
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/train
+    ann_file: E:/datasets/NEU-DET/annotations/instances_train.json
+    num_classes: 6
+    class_names: [crazing, inclusion, patches, pitted_surface, rolled-in_scale, scratch]
+    return_masks: false
+    transforms:
+      type: Compose
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: ConvertBox, out_fmt: "cxcywh", normalize: true}
+  batch_size: 4
+  shuffle: true
+  num_workers: 0
+  drop_last: true
+  collate_fn: detection_collate
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/val
+    ann_file: E:/datasets/NEU-DET/annotations/instances_val.json
+    num_classes: 6
+    class_names: [crazing, inclusion, patches, pitted_surface, rolled-in_scale, scratch]
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+  batch_size: 6
+  shuffle: false
+  num_workers: 0
+  drop_last: false
+  collate_fn: detection_collate

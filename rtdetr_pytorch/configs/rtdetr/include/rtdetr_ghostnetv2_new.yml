@@ -1,0 +1,72 @@
+# 路径: configs/rtdetr/include/rtdetr_ghostnetv2_new.yml
+
+task: detection
+
+model: RTDETR
+criterion: SetCriterion
+postprocessor: RTDETRPostProcessor
+use_focal_loss: True
+
+RTDETR:
+  backbone: GhostNetV2Backbone
+  encoder: HybridEncoder
+  decoder: RTDETRTransformer
+  # 根据 GhostNetV2 提取的层级调整多尺度训练尺寸
+  multi_scale: [480, 512, 544, 576, 608, 640, 640, 640, 672, 704, 736, 768, 800]
+
+# -----------------------------------------------------------------
+# 骨干网络 (Backbone)
+# -----------------------------------------------------------------
+GhostNetV2Backbone:
+  model_name: ghostnetv2_100       # 对应 src/nn/backbone/ghostnetv2.py 中的注册名
+  pretrained: true
+  out_indices: [2, 3, 4]           # 提取最后三个阶段特征
+
+# -----------------------------------------------------------------
+# 编码器 (Encoder) - 必须与 Backbone 输出通道匹配
+# -----------------------------------------------------------------
+HybridEncoder:
+  # GhostNetV2 1.0x 在 stage 2,3,4 的输出通道通常是 [40, 80, 160]
+  in_channels: [40, 80, 160]
+  feat_strides: [8, 16, 32]
+
+  hidden_dim: 192                  # 轻量化设置
+  use_encoder_idx: [2]
+  num_encoder_layers: 1
+  nhead: 6
+  dim_feedforward: 768
+  dropout: 0.0
+  enc_act: 'gelu'
+  pe_temperature: 10000
+  expansion: 1.0
+  depth_mult: 1.0
+  act: 'silu'
+  eval_spatial_size: [640, 640]
+
+# -----------------------------------------------------------------
+# 解码器 (Decoder) & 其他组件
+# -----------------------------------------------------------------
+RTDETRTransformer:
+  feat_channels: [192, 192, 192]
+  feat_strides: [8, 16, 32]
+  hidden_dim: 192
+  num_levels: 3
+  num_queries: 300
+  num_decoder_layers: 3
+  num_denoising: 100
+  eval_idx: -1
+  eval_spatial_size: [640, 640]
+
+RTDETRPostProcessor:
+  num_top_queries: 300
+
+SetCriterion:
+  weight_dict: {loss_vfl: 1, loss_bbox: 5, loss_giou: 2}
+  losses: ['vfl', 'boxes']
+  alpha: 0.75
+  gamma: 2.0
+  matcher:
+    type: HungarianMatcher
+    weight_dict: {cost_class: 2, cost_bbox: 5, cost_giou: 2}
+    alpha: 0.25
+    gamma: 2.0

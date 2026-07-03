@@ -1,0 +1,76 @@
+﻿__include__:
+  - "../runtime.yml"
+  - "./include/optimizer.yml"
+  - "./include/rtdetr_ghostnetv2.yml"
+
+output_dir: ./output/gc10_ghostv2
+
+# ★ 必须要有：把类名映射到具体 Python 模块，供 create() 使用
+inject:
+  DataLoader: src.data.dataloader
+  CocoDetection: src.data.coco.coco_dataset
+  Compose: src.data.transforms
+  EmptyTransform: src.data.transforms
+  PadToSize: src.data.transforms
+  RandomIoUCrop: src.data.transforms
+  ConvertBox: src.data.transforms
+  RandomPhotometricDistort: src.data.transforms
+  RandomZoomOut: src.data.transforms
+  SanitizeBoundingBox: src.data.transforms
+  RandomHorizontalFlip: src.data.transforms
+  Resize: src.data.transforms
+  ToImageTensor: src.data.transforms
+  ConvertDtype: src.data.transforms
+  # collate_fn 已在代码里注册，不需要放到 inject
+
+# ★ 按你转换后的 GC10（10 类）
+RTDETR:
+  num_classes: 10
+
+train_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/DATASETGC10_COCO/images/train
+    ann_file:  E:/DATASETGC10_COCO/annotations/instances_train.json
+    num_classes: 10
+    class_names: [1_chongkong, 2_hanfeng, 3_yueyawan, 4_shuiban, 5_youban, 6_siban, 7_yiwu, 8_yahen, 9_zhehen, 10_yaozhe]
+    return_masks: false
+    transforms:
+      type: Compose
+      ops:
+        - {type: RandomPhotometricDistort, p: 0.5}
+        - {type: RandomZoomOut, fill: 0}
+        - {type: RandomIoUCrop, p: 0.8}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: RandomHorizontalFlip}
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+        - {type: SanitizeBoundingBox, min_size: 1}
+        - {type: ConvertBox, out_fmt: "cxcywh", normalize: true}
+  batch_size: 4
+  shuffle: true
+  num_workers: 0
+  drop_last: true
+  collate_fn: detection_collate
+
+val_dataloader:
+  type: DataLoader
+  dataset:
+    type: CocoDetection
+    img_folder: E:/DATASETGC10_COCO/images/val
+    ann_file:  E:/DATASETGC10_COCO/annotations/instances_val.json
+    num_classes: 10
+    class_names: [1_chongkong, 2_hanfeng, 3_yueyawan, 4_shuiban, 5_youban, 6_siban, 7_yiwu, 8_yahen, 9_zhehen, 10_yaozhe]
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640]}
+        - {type: ToImageTensor}
+        - {type: ConvertDtype}
+  batch_size: 6
+  shuffle: false
+  num_workers: 0
+  drop_last: false
+  collate_fn: detection_collate

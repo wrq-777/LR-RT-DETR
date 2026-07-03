@@ -1,0 +1,17 @@
+dataset:
+  train:
+    name: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/train
+    ann_file: E:/datasets/NEU-DET/annotations/instances_train.json
+  val:
+    name: CocoDetection
+    img_folder: E:/datasets/NEU-DET/images/val
+    ann_file: E:/datasets/NEU-DET/annotations/instances_val.json
+  num_classes: 6
+  class_names:
+    - crazing
+    - inclusion
+    - patches
+    - pitted_surface
+    - rolled-in_scale
+    - scratch
